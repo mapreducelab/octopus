@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: default
+  name: octopus-nac-passive-scanner-traffic-topic
+  labels:
+    app: octopus-nac-passive-scanner-traffic-topic
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: octopus-nac-passive-scanner-traffic-topic
+  template:
+    metadata:
+      labels:
+        app: octopus-nac-passive-scanner-traffic-topic
+    spec:
+      containers:
+      - name: octopus-nac-passive-scanner-traffic-topic
+        image: art-hq.intranet.qualys.com:5001/datalake/octopus:0.1.1
+        volumeMounts:
+          - name: octopus-config
+            mountPath: /home/octopus/config.yaml
+            subPath: nac-passive-scanner-traffic-topic.yaml
+            readOnly: true
+      volumes:
+        - name: octopus-config
+          configMap:
+            name: octopus-config

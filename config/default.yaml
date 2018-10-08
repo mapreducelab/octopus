@@ -1,0 +1,15 @@
+streamingService: "KAFKA"
+kafkaCon:
+  brokers:
+    - "qkafka01.p09.eng.in03.qualys.com:50360"
+    - "qkafka02.p09.eng.in03.qualys.com:50360"
+    - "qkafka03.p09.eng.in03.qualys.com:50360"
+  topic: "nac-passive-scanner-traffic-topic"
+  distributed: false
+minio:
+  endpoint: "minio.eng.sjc01.qualys.com"
+  accessKeyID: "AKIAIOSFODNN7EXAMPLE"
+  secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  bucketName: "qlake"
+  useSSL: false
+uploadSize: 8192000
