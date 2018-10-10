@@ -1,8 +1,10 @@
 package process
 
 import (
+	"octopus/config"
 	"time"
 
+	"github.com/Shopify/sarama"
 	log "github.com/go-kit/kit/log"
 )
 
@@ -13,18 +15,20 @@ type LogMiddleware struct {
 }
 
 // Process messages from streaming services.
-func (lm LogMiddleware) Process(b []byte) (oBytes []byte, err error) {
+func (lm LogMiddleware) Process(con config.Connection, msg *sarama.ConsumerMessage) (err error) {
 	defer func(begin time.Time) {
 		method := "store.Process"
 		logger := log.With(lm.Logger, "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
 		_ = logger.Log(
 			"method", method,
-			"size", len(b),
+			"Topic", msg.Topic,
+			"Partition", msg.Partition,
+			"size", len(msg.Value),
 			"err", err,
 			"took", time.Since(begin),
 		)
 	}(time.Now())
 
-	oBytes, err = lm.Next.Process(b)
+	err = lm.Next.Process(con, msg)
 	return
 }

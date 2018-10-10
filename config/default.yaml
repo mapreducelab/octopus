@@ -13,4 +13,4 @@ minio:
   secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
   bucketName: "qlake"
   useSSL: false
-uploadSize: 0 #8192000
+uploadSize: 8192000

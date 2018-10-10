@@ -5,7 +5,6 @@ import (
 	stdlog "log"
 	"octopus/config"
 	"octopus/services/process"
-	"octopus/services/store"
 	"os"
 	"os/signal"
 
@@ -63,29 +62,18 @@ func (c *streamerService) Process(con config.Connection) (err error) {
 		}
 	}()
 
-	s := store.LogMiddleware{
-		Logger: logger,
-		Next:   store.NewStoreService(),
-	}
 	pr := process.LogMiddleware{
 		Logger: logger,
 		Next:   process.NewProcessorService(),
 	}
 
 	// consume messages, watch signals
-	var jsonBytes []byte
 	for {
 		select {
 		case msg, ok := <-consumer.Messages():
 			if ok {
-				processedMsg, err := pr.Process(msg.Value)
-				if err != nil {
+				if err := pr.Process(con, msg); err != nil {
 					stdlog.Printf("Processing failed :%+v", err)
-				}
-				jsonBytes = append(jsonBytes, processedMsg...)
-				if len(jsonBytes) > con.UploadSize {
-					s.Minio(con.Minio, jsonBytes, msg.Topic)
-					jsonBytes = []byte{}
 				}
 				consumer.MarkOffset(msg, "")
 			}
