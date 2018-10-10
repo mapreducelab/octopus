@@ -1,22 +1,29 @@
 package main
 
 import (
-	"log"
+	stdlog "log"
 	"octopus/config"
 	"octopus/services/stream"
 	"os"
+
+	"github.com/go-kit/kit/log"
 )
 
 func main() {
+	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+
 	var con config.Connection
-	if err := con.GetCon("/home/octopus/config.yaml"); err != nil {
-		log.Printf("%+v", err)
+	if err := con.GetCon("/Users/aputra/go/src/octopus/config/default.yaml"); err != nil {
+		stdlog.Printf("%+v", err)
 		os.Exit(1)
 	}
 
-	s := stream.NewStreamerService()
+	s := stream.LogMiddleware{
+		Logger: logger,
+		Next:   stream.NewStreamerService(),
+	}
 	if err := s.Process(con); err != nil {
-		log.Printf("%+v", err)
+		stdlog.Printf("%+v", err)
 		os.Exit(1)
 	}
 }

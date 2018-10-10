@@ -1,4 +1,4 @@
-.PHONY: all test clean build
+.PHONY: all test clean build exec
 
 GOCMD=go
 GOBUILD=$(GOCMD) build
@@ -15,6 +15,8 @@ REPO = datalake
 
 all: deps build
 docker: build-image push-image clean-image
+exec:
+	$(GOCMD) run main.go
 build: 
 	$(GOBUILD) -o $(BINARY_NAME) -v
 test: 

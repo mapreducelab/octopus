@@ -39,6 +39,9 @@ type KafkaCon struct {
 	// Execution mode, if "false" will be lunched only one instance of Streamer
 	// per Kafka topic, otherwise one instance of Streamer per topic's partision.
 	Distributed bool `yaml:"distributed"`
+
+	// ClientID is a client identification.
+	ClientID string `yaml:"clientID"`
 }
 
 // A Minio represents a configuration object to establish
