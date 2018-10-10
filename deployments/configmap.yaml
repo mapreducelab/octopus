@@ -15,6 +15,7 @@ data:
         - "qkafka03.p09.eng.in03.qualys.com:50360"
       topic: "nac-passive-scanner-traffic-topic"
       distributed: false
+      clientID: qflow
     minio:
       endpoint: "minio.eng.sjc01.qualys.com"
       accessKeyID: "AKIAIOSFODNN7EXAMPLE"
@@ -22,6 +23,7 @@ data:
       bucketName: "qlake"
       useSSL: false
     uploadSize: 8192000
+
   nac-passive-scanner-topic.yaml: |
     streamingService: "KAFKA"
     kafkaCon:
@@ -31,6 +33,7 @@ data:
         - "qkafka03.p09.eng.in03.qualys.com:50360"
       topic: "nac-passive-scanner-topic"
       distributed: false
+      clientID: qflow
     minio:
       endpoint: "minio.eng.sjc01.qualys.com"
       accessKeyID: "AKIAIOSFODNN7EXAMPLE"

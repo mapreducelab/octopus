@@ -2,13 +2,14 @@ package stream
 
 import (
 	"fmt"
-	"log"
+	stdlog "log"
 	"octopus/config"
-	"octopus/minio"
+	"octopus/services/process"
 	"os"
 	"os/signal"
 
-	"github.com/Shopify/sarama"
+	cluster "github.com/bsm/sarama-cluster"
+	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 )
 
@@ -29,84 +30,57 @@ func (c *streamerService) Process(con config.Connection) (err error) {
 		return errors.New("distributed mode is not yet supported")
 	}
 
-	config := sarama.NewConfig()
+	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+	config := cluster.NewConfig()
 	config.Consumer.Return.Errors = true
-	config.ClientID = "datalake"
+	config.ClientID = con.KafkaCon.ClientID
 
-	// Create new consumer
-	master, err := sarama.NewConsumer(con.KafkaCon.Brokers, config)
+	topics := []string{con.KafkaCon.Topic}
+	consumerGroup := fmt.Sprintf("%s-consumer-group", con.KafkaCon.ClientID)
+
+	consumer, err := cluster.NewConsumer(con.KafkaCon.Brokers, consumerGroup, topics, config)
 	if err != nil {
 		return errors.Wrap(err, "failed to create consumer")
 	}
-	defer func() {
-		if err := master.Close(); err != nil {
-			log.Fatalln(err)
-		}
-	}()
+	defer consumer.Close()
 
-	consumer, sErrors, err := consume(con.KafkaCon.Topic, master)
-	if err != nil {
-		return errors.Wrapf(err, "failed to consume kafka topic: %v", con.KafkaCon.Topic)
-	}
-
+	// trap SIGINT to trigger a shutdown.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt)
 
-	// Get signal for finish
-	doneCh := make(chan struct{})
-	go func(uploadSize int) {
-		var jsonBytes []byte
-		for {
-			select {
-			case msg := <-consumer:
-				jsonBytes = append(jsonBytes, msg.Value...)
-				if len(jsonBytes) > uploadSize {
-					minio.SaveToMinio(con.Minio, jsonBytes, msg.Topic)
-					jsonBytes = []byte{}
-				}
-			case consumerError := <-sErrors:
-				fmt.Println("Received consumerError ", string(consumerError.Topic), string(consumerError.Partition), consumerError.Err)
-				doneCh <- struct{}{}
-			case <-signals:
-				fmt.Println("Interrupt is detected")
-				doneCh <- struct{}{}
-			}
+	// consume errors
+	go func() {
+		for err := range consumer.Errors() {
+			stdlog.Printf("Error: %s\n", err.Error())
 		}
-	}(con.UploadSize)
-	<-doneCh
+	}()
 
-	return nil
-}
+	// consume notifications
+	go func() {
+		for ntf := range consumer.Notifications() {
+			stdlog.Printf("Rebalanced: %+v\n", ntf)
+		}
+	}()
 
-// A generator pattern, creates channels for each partition and starts to push messages.
-func consume(topic string, master sarama.Consumer) (chan *sarama.ConsumerMessage, chan *sarama.ConsumerError, error) {
-	consumers := make(chan *sarama.ConsumerMessage)
-	sErrors := make(chan *sarama.ConsumerError)
-
-	partitions, err := master.Partitions(topic)
-	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to get partisions for topic: %v", topic)
+	pr := process.LogMiddleware{
+		Logger: logger,
+		Next:   process.NewProcessorService(),
 	}
 
-	for part := range partitions {
-		consumer, err := master.ConsumePartition(topic, int32(part), sarama.OffsetNewest)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "failed to consume partition: %v, of topic: %v", topic, int32(part))
-		}
-		log.Printf("Start consuming partision: %d of the topic: %v\n", int32(part), topic)
-		go func(topic string, consumer sarama.PartitionConsumer, part int32) {
-			for {
-				select {
-				case consumerError := <-consumer.Errors():
-					sErrors <- consumerError
-				case msg := <-consumer.Messages():
-					consumers <- msg
+	// consume messages, watch signals
+	for {
+		select {
+		case msg, ok := <-consumer.Messages():
+			if ok {
+				if err := pr.Process(con, msg); err != nil {
+					stdlog.Printf("Processing failed :%+v", err)
 				}
+				consumer.MarkOffset(msg, "")
 			}
-		}(topic, consumer, int32(part))
+		case <-signals:
+			return
+		}
 	}
-
-	return consumers, sErrors, nil
 }
 
 // NewStreamerService returns a naive, stateless implementation of StreamerService.

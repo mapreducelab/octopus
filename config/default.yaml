@@ -6,6 +6,7 @@ kafkaCon:
     - "qkafka03.p09.eng.in03.qualys.com:50360"
   topic: "nac-passive-scanner-traffic-topic"
   distributed: false
+  clientID: qflow
 minio:
   endpoint: "minio.eng.sjc01.qualys.com"
   accessKeyID: "AKIAIOSFODNN7EXAMPLE"
